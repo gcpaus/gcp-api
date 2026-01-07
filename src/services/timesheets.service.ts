@@ -158,12 +158,13 @@ async function getWorkScheduleById(orgId: UUID, workScheduleId: UUID | undefined
   return res?.data;
 }
 
-async function getEmployeeRoles(employeeId: UUID): Promise<DefinitivRole[] | undefined> {
+async function getEmployeeRole(employeeId: UUID): Promise<DefinitivRole | undefined> {
   const url = `${definitivConfig.endpoint}/api/employee/${employeeId}/roles`;
   const res = await axios.get<DefinitivRole[]>(url, {headers: definitivHeaders}).catch(error => {
     console.log(error.response.status, error.response.statusText);
   });
-  return res?.data;
+  const activeRole = res?.data?.find(_ => _.ceaseDate === null || new Date(_.ceaseDate) > new Date());
+  return activeRole || res?.data?.[0];
 }
 
 async function getEmployeeDepartments(employeeId: UUID): Promise<DefinitivDepartment[] | undefined> {
@@ -508,9 +509,9 @@ export async function handleRapidEvent(body: RapidBody, skipLog = false): Promis
   const projects = await getEmployeeProjects(employee.employeeId);
   const projectId = projects?.[0]?.projectId;
   if (!projectId) return Promise.reject({code: 200, message: 'Unable to get employee\'s project.'});
-  const roles = await getEmployeeRoles(employee.employeeId);
-  const roleId = roles?.[0]?.roleId;
-  const shiftTypeId = roles?.[0]?.defaultShiftTypeId;
+  const role = await getEmployeeRole(employee.employeeId);
+  const roleId = role?.roleId;
+  const shiftTypeId = role?.defaultShiftTypeId;
   if (!roleId) return Promise.reject({code: 200, message: 'Unable to get employee\'s role.'});
   switch (eventName) {
     case 'CHECKIN_ENTERED':
